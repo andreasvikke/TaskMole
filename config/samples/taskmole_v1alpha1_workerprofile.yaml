@@ -1,0 +1,35 @@
+apiVersion: taskmole.io/v1alpha1
+kind: WorkerProfile
+metadata:
+  name: echo
+spec:
+  displayName: Echo worker
+  description: Accepts a task and returns a completion message.
+  tags: [example]
+  inputSchema:
+    $schema: https://json-schema.org/draft/2020-12/schema
+    type: object
+    required: [task]
+    additionalProperties: false
+    properties:
+      task:
+        type: string
+        minLength: 1
+  outputSchema:
+    $schema: https://json-schema.org/draft/2020-12/schema
+    type: object
+    required: [message]
+    additionalProperties: false
+    properties:
+      message:
+        const: I did your task
+  runtime:
+    image: busybox:1.37
+    command: [/bin/sh, -c]
+    args:
+      - |
+        echo "Processing input from $TASKMOLE_INPUT_PATH" >&2
+        echo '{"message":"I did your task"}' > "$TASKMOLE_RESULT_PATH"
+    runAsUser: 65532
+    runAsGroup: 65532
+    timeoutSeconds: 300

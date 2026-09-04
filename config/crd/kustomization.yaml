@@ -1,0 +1,6 @@
+resources:
+- bases/taskmole.io_workerprofiles.yaml
+- bases/taskmole.io_workertasks.yaml
+# +kubebuilder:scaffold:crdkustomizeresource
+
+# +kubebuilder:scaffold:crdkustomizewebhookpatch

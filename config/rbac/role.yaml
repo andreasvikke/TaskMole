@@ -1,0 +1,66 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: manager-role
+  namespace: taskmole
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - taskmole.io
+  resources:
+  - workerprofiles
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - taskmole.io
+  resources:
+  - workerprofiles/status
+  - workertasks/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - taskmole.io
+  resources:
+  - workertasks
+  verbs:
+  - create
+  - get
+  - list
+  - watch

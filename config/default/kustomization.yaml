@@ -1,0 +1,7 @@
+namespace: taskmole
+
+resources:
+- ../crd
+- ../rbac
+- ../manager
+- mcp_service.yaml

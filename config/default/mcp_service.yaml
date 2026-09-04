@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: taskmole-manager
+    app.kubernetes.io/name: taskmole
+    app.kubernetes.io/managed-by: kustomize
+  name: taskmole-mcp
+  namespace: taskmole
+  annotations:
+    taskmole.io/security-warning: "Unauthenticated plaintext endpoint; expose only through an authenticated TLS tunnel"
+spec:
+  type: ClusterIP
+  ports:
+  - name: mcp
+    port: 8082
+    protocol: TCP
+    targetPort: mcp
+  selector:
+    control-plane: taskmole-manager
+    app.kubernetes.io/name: taskmole

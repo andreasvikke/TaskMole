@@ -1,0 +1,10 @@
+.git
+.github
+bin
+cover.out
+config
+docs
+test/*
+!test/fixture
+!test/fixture/**
+*_test.go
