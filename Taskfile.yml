@@ -1,0 +1,198 @@
+version: "3"
+
+vars:
+  IMG: '{{default "controller:latest" .IMG}}'
+  CONTAINER_TOOL: '{{default "podman" .CONTAINER_TOOL}}'
+  KIND: '{{default "kind" .KIND}}'
+  KIND_CLUSTER: '{{default "taskmole-test-e2e" .KIND_CLUSTER}}'
+  FIXTURE_IMG: '{{default "example.com/taskmole-fixture:v0.0.1" .FIXTURE_IMG}}'
+  EXAMPLE_IMG: '{{default "example.com/taskmole-simple-worker:v1" .EXAMPLE_IMG}}'
+  KUBECTL: '{{default "kubectl" .KUBECTL}}'
+  LOCALBIN: "{{.ROOT_DIR}}/bin"
+  CONTROLLER_GEN: "{{.LOCALBIN}}/controller-gen-v0.21.0"
+  ENVTEST: "{{.LOCALBIN}}/setup-envtest-v0.24.1"
+  KUSTOMIZE: "{{.LOCALBIN}}/kustomize-v5.8.1"
+  GOLANGCI_LINT: "{{.LOCALBIN}}/golangci-lint-v2.12.2"
+  ENVTEST_K8S_VERSION: "1.36"
+
+tasks:
+  default:
+    desc: Build the manager
+    cmds:
+      - task: build
+
+  controller-gen:
+    internal: true
+    run: once
+    status:
+      - test -x {{.CONTROLLER_GEN}}
+    cmds:
+      - mkdir -p {{.LOCALBIN}}
+      - GOBIN={{.LOCALBIN}} go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.21.0
+      - mv {{.LOCALBIN}}/controller-gen {{.CONTROLLER_GEN}}
+
+  envtest:
+    internal: true
+    run: once
+    status:
+      - test -x {{.ENVTEST}}
+    cmds:
+      - mkdir -p {{.LOCALBIN}}
+      - GOBIN={{.LOCALBIN}} go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.24.1
+      - mv {{.LOCALBIN}}/setup-envtest {{.ENVTEST}}
+
+  kustomize:
+    internal: true
+    run: once
+    status:
+      - test -x {{.KUSTOMIZE}}
+    cmds:
+      - mkdir -p {{.LOCALBIN}}
+      - GOBIN={{.LOCALBIN}} go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
+      - mv {{.LOCALBIN}}/kustomize {{.KUSTOMIZE}}
+
+  golangci-lint:
+    internal: true
+    run: once
+    status:
+      - test -x {{.GOLANGCI_LINT}}
+    cmds:
+      - mkdir -p {{.LOCALBIN}}
+      - GOBIN={{.LOCALBIN}} go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+      - mv {{.LOCALBIN}}/golangci-lint {{.GOLANGCI_LINT}}
+
+  generate:
+    desc: Generate CRDs, RBAC, and deep-copy implementations
+    deps: [controller-gen]
+    cmds:
+      - '{{.CONTROLLER_GEN}} rbac:roleName=manager-role crd paths="./..." output:crd:artifacts:config=config/crd/bases'
+      - '{{.CONTROLLER_GEN}} object paths="./..."'
+
+  verify-generated:
+    desc: Verify committed generated artifacts are current
+    deps: [generate]
+    cmds:
+      - git diff --exit-code -- api config/crd/bases config/rbac/role.yaml
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  test:
+    desc: Run unit and envtest tests
+    deps: [envtest]
+    cmds:
+      - |
+        assets=$({{.ENVTEST}} use {{.ENVTEST_K8S_VERSION}} --bin-dir {{.LOCALBIN}} -p path)
+        KUBEBUILDER_ASSETS="$assets" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out
+
+  build:
+    desc: Build the manager binary
+    cmds:
+      - go build -o bin/manager cmd/main.go
+
+  run:
+    desc: Run the manager locally
+    cmds:
+      - go run ./cmd/main.go
+
+  container-build:
+    desc: Build the manager container image
+    cmds:
+      - '{{.CONTAINER_TOOL}} build --file Containerfile --tag {{.IMG}} .'
+
+  container-push:
+    desc: Push the manager container image
+    cmds:
+      - '{{.CONTAINER_TOOL}} push {{.IMG}}'
+
+  fixture-build:
+    desc: Build the deterministic end-to-end fixture worker
+    cmds:
+      - '{{.CONTAINER_TOOL}} build --file test/fixture/Containerfile --tag {{.FIXTURE_IMG}} .'
+
+  example-build:
+    desc: Build the simple example worker image
+    cmds:
+      - '{{.CONTAINER_TOOL}} build --file examples/simple-worker/Containerfile --tag {{.EXAMPLE_IMG}} .'
+
+  setup-test-e2e:
+    desc: Create the isolated Kind cluster when absent
+    cmds:
+      - |
+        command -v {{.KIND}} >/dev/null
+        if ! {{.KIND}} get clusters | grep -Fxq {{.KIND_CLUSTER}}; then
+          {{.KIND}} create cluster --name {{.KIND_CLUSTER}}
+        fi
+
+  cleanup-test-e2e:
+    desc: Delete the isolated Kind cluster
+    cmds:
+      - '{{.KIND}} delete cluster --name {{.KIND_CLUSTER}}'
+
+  test-e2e:
+    desc: Run end-to-end tests against isolated Kind
+    deps: [setup-test-e2e]
+    cmds:
+      - KIND={{.KIND}} KIND_CLUSTER={{.KIND_CLUSTER}} CONTAINER_TOOL={{.CONTAINER_TOOL}} FIXTURE_IMG={{.FIXTURE_IMG}} go test -tags=e2e ./test/e2e/ -v
+    defer:
+      task: cleanup-test-e2e
+
+  lint:
+    desc: Run the linter
+    deps: [golangci-lint]
+    cmds:
+      - '{{.GOLANGCI_LINT}} run --config .golangci.yml'
+
+  lint-fix:
+    desc: Run the linter with automatic fixes
+    deps: [golangci-lint]
+    cmds:
+      - '{{.GOLANGCI_LINT}} run --fix --config .golangci.yml'
+
+  lint-config:
+    desc: Validate the linter configuration
+    deps: [golangci-lint]
+    cmds:
+      - '{{.GOLANGCI_LINT}} config verify'
+
+  build-installer:
+    desc: Build a consolidated installation manifest
+    deps: [kustomize]
+    cmds:
+      - mkdir -p dist
+      - '{{.KUSTOMIZE}} build config/default | sed ''s|image: controller:latest|image: {{.IMG}}|'' > dist/install.yaml'
+
+  install-crds:
+    desc: Install CRDs into the current cluster
+    deps: [kustomize]
+    cmds:
+      - '{{.KUSTOMIZE}} build config/crd | {{.KUBECTL}} apply -f -'
+
+  uninstall-crds:
+    desc: Uninstall CRDs from the current cluster
+    deps: [kustomize]
+    vars:
+      IGNORE_NOT_FOUND: '{{default "false" .IGNORE_NOT_FOUND}}'
+    cmds:
+      - '{{.KUSTOMIZE}} build config/crd | {{.KUBECTL}} delete --ignore-not-found={{.IGNORE_NOT_FOUND}} -f -'
+
+  install:
+    desc: Install the application
+    deps: [kustomize]
+    cmds:
+      - '{{.KUSTOMIZE}} build config/default | sed ''s|image: controller:latest|image: {{.IMG}}|'' | {{.KUBECTL}} apply -f -'
+
+  uninstall:
+    desc: Remove the application
+    deps: [kustomize]
+    vars:
+      IGNORE_NOT_FOUND: '{{default "false" .IGNORE_NOT_FOUND}}'
+    cmds:
+      - '{{.KUSTOMIZE}} build config/default | {{.KUBECTL}} delete --ignore-not-found={{.IGNORE_NOT_FOUND}} -f -'

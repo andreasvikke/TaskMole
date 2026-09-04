@@ -1,0 +1,58 @@
+name: Checks
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with: {persist-credentials: false}
+    - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+      with: {go-version-file: go.mod}
+    - run: go install github.com/go-task/task/v3/cmd/task@v3.53.1
+    - run: task lint
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with: {persist-credentials: false}
+    - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+      with: {go-version-file: go.mod}
+    - run: go install github.com/go-task/task/v3/cmd/task@v3.53.1
+    - run: task test
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with: {persist-credentials: false}
+    - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+      with: {go-version-file: go.mod}
+    - run: go install github.com/go-task/task/v3/cmd/task@v3.53.1
+    - run: task verify-generated
+  e2e:
+    runs-on: ubuntu-latest
+    env: {CONTAINER_TOOL: docker, KIND_EXPERIMENTAL_PROVIDER: docker}
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with: {persist-credentials: false}
+    - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+      with: {go-version-file: go.mod}
+    - run: go install github.com/go-task/task/v3/cmd/task@v3.53.1
+    - run: task test-e2e
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with: {persist-credentials: false}
+    - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+      with: {go-version-file: go.mod}
+    - run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4 && govulncheck ./...
+  container-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      with: {persist-credentials: false}
+    - run: docker build --file Containerfile --tag taskmole:ci .
+    - run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.66.0 image --image-src docker --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL taskmole:ci

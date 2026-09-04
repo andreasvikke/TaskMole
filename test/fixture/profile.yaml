@@ -1,0 +1,34 @@
+apiVersion: taskmole.io/v1alpha1
+kind: WorkerProfile
+metadata:
+  name: fixture
+  namespace: taskmole
+spec:
+  displayName: Deterministic fixture runner
+  description: Exercises success, failure, timeout, invalid, and missing result behavior.
+  tags: [fixture, e2e]
+  inputSchema:
+    $schema: https://json-schema.org/draft/2020-12/schema
+    type: object
+    required: [mode, message]
+    additionalProperties: false
+    properties:
+      mode:
+        type: string
+        enum: [success, failure, timeout, invalid, missing]
+      message:
+        type: string
+  outputSchema:
+    $schema: https://json-schema.org/draft/2020-12/schema
+    type: object
+    required: [acknowledged, message]
+    additionalProperties: false
+    properties:
+      acknowledged:
+        const: true
+      message:
+        type: string
+  runtime:
+    image: example.com/taskmole-fixture:v0.0.1
+    imagePullPolicy: IfNotPresent
+    timeoutSeconds: 60

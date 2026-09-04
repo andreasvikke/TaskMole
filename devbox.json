@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.18.0/.schema/devbox.schema.json",
+  "packages": [
+    "go@1.26",
+    "kubebuilder@4.15.0",
+    "kubectl@1.36",
+    "kind@0.32.0",
+    "git@latest",
+    "go-task@3.53.1"
+  ],
+  "shell": {
+    "scripts": {
+      "build":    "task build",
+      "generate": "task generate",
+      "lint":     "task lint",
+      "test":     "task test",
+      "test-e2e": "task test-e2e"
+    }
+  }
+}
