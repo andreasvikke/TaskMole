@@ -36,18 +36,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build commit image
-        run: docker build --file Containerfile --tag "$IMAGE:$GITHUB_SHA" .
+      - name: Build commit and main images
+        run: docker build --file Containerfile --tag "$IMAGE:$GITHUB_SHA" --tag "$IMAGE:main" .
 
-      - name: Push commit image
-        run: docker push "$IMAGE:$GITHUB_SHA"
+      - name: Push commit and main images
+        run: |
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:main"
 
   promote:
     if: github.event_name == 'release'
     name: Promote commit image to release version
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Clone the released version
@@ -71,3 +73,12 @@ jobs:
 
       - name: Promote commit image
         run: docker buildx imagetools create --tag "$IMAGE:$VERSION_TAG" "$IMAGE:$SOURCE_TAG"
+
+      - name: Set release image in installer
+        run: |
+          sed -i "s|image: $IMAGE:main|image: $IMAGE:$VERSION_TAG|" dist/install.yaml
+
+      - name: Add installer to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$VERSION_TAG" dist/install.yaml --clobber

@@ -11,7 +11,7 @@ fresh MCP connection.
 ## Install
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/andreasvikke/taskmole/VERSION/dist/install.yaml
+kubectl apply -f https://github.com/andreasvikke/taskmole/releases/download/VERSION/install.yaml
 kubectl -n taskmole port-forward service/taskmole-mcp 8082:8082
 ```
 
