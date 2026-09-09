@@ -216,6 +216,29 @@ func TestDesiredJobUsesProfileIdentity(t *testing.T) {
 	}
 }
 
+func TestDesiredJobUsesRuntimeDefaultSeccompWhenOmitted(t *testing.T) {
+	profile := desiredJob(scheduledTestTask()).Spec.Template.Spec.SecurityContext.SeccompProfile
+	if profile == nil || profile.Type != corev1.SeccompProfileTypeRuntimeDefault {
+		t.Fatalf("unexpected seccomp profile: %#v", profile)
+	}
+}
+
+func TestDesiredJobUsesLocalhostSeccompProfile(t *testing.T) {
+	task := scheduledTestTask()
+	profilePath := "profiles/codex-bwrap.json"
+	task.Spec.ProfileSnapshot.Runtime.SeccompProfile = &corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeLocalhost, LocalhostProfile: &profilePath,
+	}
+
+	profile := desiredJob(task).Spec.Template.Spec.SecurityContext.SeccompProfile
+	if profile == task.Spec.ProfileSnapshot.Runtime.SeccompProfile {
+		t.Fatal("seccomp profile was not deep-copied")
+	}
+	if profile == nil || profile.Type != corev1.SeccompProfileTypeLocalhost || profile.LocalhostProfile == nil || *profile.LocalhostProfile != profilePath {
+		t.Fatalf("unexpected seccomp profile: %#v", profile)
+	}
+}
+
 func scheduledTestTask() *taskmolev1alpha1.WorkerTask {
 	schema := extensionsv1.JSON{Raw: []byte(`{"type":"object"}`)}
 	return &taskmolev1alpha1.WorkerTask{ObjectMeta: metav1.ObjectMeta{Name: "task-test", Namespace: "default", UID: "task-uid", Generation: 1},

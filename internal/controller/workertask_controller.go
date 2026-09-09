@@ -101,6 +101,10 @@ func desiredJob(task *taskmolev1alpha1.WorkerTask) *batchv1.Job {
 	deadline := int64(workerRuntime.TimeoutSeconds)
 	labels := map[string]string{taskNameLabel: task.Name}
 	annotations := taskAnnotations(task)
+	seccompProfile := workerRuntime.SeccompProfile.DeepCopy()
+	if seccompProfile == nil {
+		seccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}
+	}
 	container := corev1.Container{Name: workerContainerName, Image: workerRuntime.Image, ImagePullPolicy: workerRuntime.ImagePullPolicy,
 		Command: append([]string(nil), workerRuntime.Command...), Args: append([]string(nil), workerRuntime.Args...),
 		Env: append([]corev1.EnvVar(nil), workerRuntime.Env...), EnvFrom: append([]corev1.EnvFromSource(nil), workerRuntime.EnvFrom...),
@@ -114,7 +118,7 @@ func desiredJob(task *taskmolev1alpha1.WorkerTask) *batchv1.Job {
 	return &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: task.Name, Namespace: task.Namespace, Labels: labels, Annotations: annotations}, Spec: batchv1.JobSpec{
 		BackoffLimit: &zero, ActiveDeadlineSeconds: &deadline, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: labels, Annotations: annotations}, Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyNever, ServiceAccountName: workerRuntime.ServiceAccountName, Containers: []corev1.Container{container},
-			SecurityContext: &corev1.PodSecurityContext{RunAsNonRoot: pointer(true), SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}},
+			SecurityContext: &corev1.PodSecurityContext{RunAsNonRoot: pointer(true), SeccompProfile: seccompProfile},
 			Volumes: []corev1.Volume{{Name: "input", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: task.Name + "-input"}, Items: []corev1.KeyToPath{{Key: inputKey, Path: inputKey}}}}}},
 		}}}}

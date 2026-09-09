@@ -2,10 +2,12 @@ package controller
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	taskmolev1alpha1 "github.com/andreasvikke/taskmole/api/v1alpha1"
 	internalschema "github.com/andreasvikke/taskmole/internal/schema"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func validateProfile(profile *taskmolev1alpha1.WorkerProfile) (string, error) {
@@ -46,5 +48,28 @@ func validateRuntime(runtime taskmolev1alpha1.WorkerRuntimeSpec) error {
 	if strings.TrimSpace(runtime.Image) != runtime.Image || runtime.Image == "" {
 		return fmt.Errorf("image must be non-empty and contain no surrounding whitespace")
 	}
-	return nil
+	if runtime.SeccompProfile == nil {
+		return nil
+	}
+	profile := runtime.SeccompProfile
+	switch profile.Type {
+	case corev1.SeccompProfileTypeRuntimeDefault:
+		return nil
+	case corev1.SeccompProfileTypeLocalhost:
+		if profile.LocalhostProfile == nil || *profile.LocalhostProfile == "" {
+			return fmt.Errorf("localhostProfile is required for a Localhost seccomp profile")
+		}
+		profilePath := *profile.LocalhostProfile
+		if path.IsAbs(profilePath) {
+			return fmt.Errorf("localhostProfile must be a relative path")
+		}
+		for _, segment := range strings.Split(profilePath, "/") {
+			if segment == ".." {
+				return fmt.Errorf("localhostProfile must not contain '..' path traversal")
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("seccomp profile type %q is not allowed; use RuntimeDefault or Localhost", profile.Type)
+	}
 }
