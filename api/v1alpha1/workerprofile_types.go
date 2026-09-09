@@ -23,6 +23,9 @@ type WorkerRuntimeSpec struct {
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// SeccompProfile configures the seccomp profile applied to worker Pods. It defaults to RuntimeDefault.
+	// +optional
+	SeccompProfile *corev1.SeccompProfile `json:"seccompProfile,omitempty"`
 	// RunAsUser is the numeric UID used by the worker container. It defaults to 65532.
 	// +kubebuilder:validation:Minimum=1
 	// +optional

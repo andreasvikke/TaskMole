@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	taskmolev1alpha1 "github.com/andreasvikke/taskmole/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	extensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,6 +35,24 @@ func TestValidateProfile(t *testing.T) {
 		}, reason: taskmolev1alpha1.ReasonInvalidSchema},
 		{name: "invalid image", mutate: func(profile *taskmolev1alpha1.WorkerProfile) {
 			profile.Spec.Runtime.Image = " worker:v1"
+		}, reason: taskmolev1alpha1.ReasonInvalidRuntimeConfiguration},
+		{name: "valid localhost seccomp profile", mutate: func(profile *taskmolev1alpha1.WorkerProfile) {
+			profilePath := "profiles/codex-bwrap.json"
+			profile.Spec.Runtime.SeccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeLocalhost, LocalhostProfile: &profilePath}
+		}, reason: taskmolev1alpha1.ReasonValid},
+		{name: "localhost profile missing path", mutate: func(profile *taskmolev1alpha1.WorkerProfile) {
+			profile.Spec.Runtime.SeccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeLocalhost}
+		}, reason: taskmolev1alpha1.ReasonInvalidRuntimeConfiguration},
+		{name: "localhost profile absolute path", mutate: func(profile *taskmolev1alpha1.WorkerProfile) {
+			profilePath := "/profiles/codex-bwrap.json"
+			profile.Spec.Runtime.SeccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeLocalhost, LocalhostProfile: &profilePath}
+		}, reason: taskmolev1alpha1.ReasonInvalidRuntimeConfiguration},
+		{name: "localhost profile traversal", mutate: func(profile *taskmolev1alpha1.WorkerProfile) {
+			profilePath := "profiles/../codex-bwrap.json"
+			profile.Spec.Runtime.SeccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeLocalhost, LocalhostProfile: &profilePath}
+		}, reason: taskmolev1alpha1.ReasonInvalidRuntimeConfiguration},
+		{name: "unconfined seccomp profile", mutate: func(profile *taskmolev1alpha1.WorkerProfile) {
+			profile.Spec.Runtime.SeccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeUnconfined}
 		}, reason: taskmolev1alpha1.ReasonInvalidRuntimeConfiguration},
 	}
 	for _, tc := range tests {
@@ -75,7 +94,7 @@ func TestWorkerProfileReconcileRevalidatesUpdates(t *testing.T) {
 	}
 	assertReadyCondition(t, stored, metav1.ConditionTrue, taskmolev1alpha1.ReasonValid, 1)
 
-	stored.Spec.Runtime.Image = " invalid-image"
+	stored.Spec.Runtime.SeccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeUnconfined}
 	stored.Generation = 2
 	if err := client.Update(context.Background(), stored); err != nil {
 		t.Fatal(err)

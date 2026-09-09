@@ -161,6 +161,11 @@ func (in *WorkerRuntimeSpec) DeepCopyInto(out *WorkerRuntimeSpec) {
 		}
 	}
 	in.Resources.DeepCopyInto(&out.Resources)
+	if in.SeccompProfile != nil {
+		in, out := &in.SeccompProfile, &out.SeccompProfile
+		*out = new(v1.SeccompProfile)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.RunAsUser != nil {
 		in, out := &in.RunAsUser, &out.RunAsUser
 		*out = new(int64)
