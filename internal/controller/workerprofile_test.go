@@ -54,6 +54,9 @@ func TestValidateProfile(t *testing.T) {
 		{name: "unconfined seccomp profile", mutate: func(profile *taskmolev1alpha1.WorkerProfile) {
 			profile.Spec.Runtime.SeccompProfile = &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeUnconfined}
 		}, reason: taskmolev1alpha1.ReasonInvalidRuntimeConfiguration},
+		{name: "invalid proc mount", mutate: func(profile *taskmolev1alpha1.WorkerProfile) {
+			profile.Spec.Runtime.ProcMount = pointer(corev1.ProcMountType("Other"))
+		}, reason: taskmolev1alpha1.ReasonInvalidRuntimeConfiguration},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
