@@ -97,6 +97,10 @@ func desiredInputConfigMap(task *taskmolev1alpha1.WorkerTask) *corev1.ConfigMap 
 func desiredJob(task *taskmolev1alpha1.WorkerTask) *batchv1.Job {
 	workerRuntime := task.Spec.ProfileSnapshot.Runtime
 	runAsUser, runAsGroup := workerIdentity(workerRuntime)
+	var hostUsers *bool
+	if workerRuntime.ProcMount != nil && *workerRuntime.ProcMount == corev1.UnmaskedProcMount {
+		hostUsers = pointer(false)
+	}
 	zero := int32(0)
 	deadline := int64(workerRuntime.TimeoutSeconds)
 	labels := map[string]string{taskNameLabel: task.Name}
@@ -110,7 +114,7 @@ func desiredJob(task *taskmolev1alpha1.WorkerTask) *batchv1.Job {
 		Env: append([]corev1.EnvVar(nil), workerRuntime.Env...), EnvFrom: append([]corev1.EnvFromSource(nil), workerRuntime.EnvFrom...),
 		Resources: *workerRuntime.Resources.DeepCopy(),
 		SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: pointer(false), RunAsUser: runAsUser, RunAsGroup: runAsGroup,
-			Capabilities: &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}}},
+			Capabilities: &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}}, ProcMount: workerRuntime.ProcMount},
 		VolumeMounts: []corev1.VolumeMount{{Name: "input", MountPath: taskmolev1alpha1.InputPath, SubPath: inputKey, ReadOnly: true}}}
 	container.Env = append(container.Env,
 		corev1.EnvVar{Name: "TASKMOLE_INPUT_PATH", Value: taskmolev1alpha1.InputPath},
@@ -118,6 +122,7 @@ func desiredJob(task *taskmolev1alpha1.WorkerTask) *batchv1.Job {
 	return &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: task.Name, Namespace: task.Namespace, Labels: labels, Annotations: annotations}, Spec: batchv1.JobSpec{
 		BackoffLimit: &zero, ActiveDeadlineSeconds: &deadline, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: labels, Annotations: annotations}, Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyNever, ServiceAccountName: workerRuntime.ServiceAccountName, Containers: []corev1.Container{container},
+			HostUsers:       hostUsers,
 			SecurityContext: &corev1.PodSecurityContext{RunAsNonRoot: pointer(true), SeccompProfile: seccompProfile},
 			Volumes: []corev1.Volume{{Name: "input", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: task.Name + "-input"}, Items: []corev1.KeyToPath{{Key: inputKey, Path: inputKey}}}}}},

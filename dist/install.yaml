@@ -293,6 +293,13 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
+                  procMount:
+                    description: ProcMount is fixed by the profile for every worker
+                      invocation. It defaults to Default.
+                    enum:
+                    - Default
+                    - Unmasked
+                    type: string
                   resources:
                     description: ResourceRequirements describes the compute resource
                       requirements.
@@ -783,6 +790,13 @@ spec:
                       imagePullPolicy:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
+                        type: string
+                      procMount:
+                        description: ProcMount is fixed by the profile for every worker
+                          invocation. It defaults to Default.
+                        enum:
+                        - Default
+                        - Unmasked
                         type: string
                       resources:
                         description: ResourceRequirements describes the compute resource

@@ -34,6 +34,10 @@ type WorkerRuntimeSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	RunAsGroup *int64 `json:"runAsGroup,omitempty"`
+	// ProcMount is fixed by the profile for every worker invocation. It defaults to Default.
+	// +kubebuilder:validation:Enum=Default;Unmasked
+	// +optional
+	ProcMount *corev1.ProcMountType `json:"procMount,omitempty"`
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	// +kubebuilder:validation:MaxLength=63
 	// +optional

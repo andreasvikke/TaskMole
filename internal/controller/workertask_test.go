@@ -161,6 +161,8 @@ func TestWorkerTaskReconcileCreatesSchedulingResourcesOnce(t *testing.T) {
 		container.SecurityContext.RunAsUser == nil || *container.SecurityContext.RunAsUser != workerUserID ||
 		container.SecurityContext.RunAsGroup == nil || *container.SecurityContext.RunAsGroup != workerUserID ||
 		!*job.Spec.Template.Spec.SecurityContext.RunAsNonRoot ||
+		job.Spec.Template.Spec.SecurityContext.SeccompProfile == nil || job.Spec.Template.Spec.SecurityContext.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault ||
+		job.Spec.Template.Spec.HostUsers != nil ||
 		!metav1.IsControlledBy(&job, task) {
 		t.Fatalf("unexpected Job: %#v", job.Spec)
 	}
@@ -236,6 +238,19 @@ func TestDesiredJobUsesLocalhostSeccompProfile(t *testing.T) {
 	}
 	if profile == nil || profile.Type != corev1.SeccompProfileTypeLocalhost || profile.LocalhostProfile == nil || *profile.LocalhostProfile != profilePath {
 		t.Fatalf("unexpected seccomp profile: %#v", profile)
+	}
+}
+
+func TestDesiredJobUsesUnmaskedProcMount(t *testing.T) {
+	task := scheduledTestTask()
+	task.Spec.ProfileSnapshot.Runtime.ProcMount = pointer(corev1.UnmaskedProcMount)
+
+	job := desiredJob(task)
+	if procMount := job.Spec.Template.Spec.Containers[0].SecurityContext.ProcMount; procMount == nil || *procMount != corev1.UnmaskedProcMount {
+		t.Fatalf("unexpected proc mount: %#v", procMount)
+	}
+	if job.Spec.Template.Spec.HostUsers == nil || *job.Spec.Template.Spec.HostUsers {
+		t.Fatalf("hostUsers must be false for an unmasked proc mount: %#v", job.Spec.Template.Spec.HostUsers)
 	}
 }
 

@@ -48,6 +48,9 @@ func validateRuntime(runtime taskmolev1alpha1.WorkerRuntimeSpec) error {
 	if strings.TrimSpace(runtime.Image) != runtime.Image || runtime.Image == "" {
 		return fmt.Errorf("image must be non-empty and contain no surrounding whitespace")
 	}
+	if runtime.ProcMount != nil && *runtime.ProcMount != corev1.DefaultProcMount && *runtime.ProcMount != corev1.UnmaskedProcMount {
+		return fmt.Errorf("procMount must be Default or Unmasked")
+	}
 	if runtime.SeccompProfile == nil {
 		return nil
 	}
